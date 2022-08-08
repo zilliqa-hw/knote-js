@@ -12,6 +12,7 @@ on:
 env:
   ARCH: amd64
   IMAGE: "thirdparty/knote-js"
+  NODEJS_IMAGE: node:18-alpine
 
 jobs:
   build-and-scan:
@@ -47,7 +48,6 @@ jobs:
       - name: npm ci
         run: |
           docker run -v $(pwd):$(pwd) -w $(pwd) ${{ env.NODEJS_IMAGE }} npm ci
-          ls -al
 
       - name: Build
         if: "!startsWith(github.ref, 'refs/tags/v')"
