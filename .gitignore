@@ -3,3 +3,10 @@ node_modules
 
 *.tar
 data/
+
+.terraform
+init.sh
+terraform.sh
+plan.*
+state.json
+tmp

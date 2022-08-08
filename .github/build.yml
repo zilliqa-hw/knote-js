@@ -1,0 +1,96 @@
+name: Build and scan
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  release:
+    types: [published]
+
+env:
+  ARCH: amd64
+  IMAGE: "thirdparty/knote-js"
+
+jobs:
+  build-and-scan:
+    name: Build and scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Checkout tools repo
+        uses: actions/checkout@v2
+        with:
+          repository: zilliqa-hw/img-build-tools-library
+          path: img-build-tools-library
+          ssh-key: ${{ secrets.GH_IMG_LIBRARY_DEPLOY_KEY }}
+
+      - name: awscli test
+        run: aws
+
+      - name: Environment setup
+        uses: ./img-build-tools-library/.github/actions/setup
+
+      - name: Set up Docker Buildx
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: docker/build-push-action@v2
+        with:
+          build-args: |
+            ARCH=${{ env.ARCH }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache
+          context: .
+          file: ./Dockerfile
+          # See https://github.com/opencontainers/image-spec/blob/master/annotations.md
+          labels: |
+            org.opencontainers.image.created=${{ env.CREATED }}
+            org.opencontainers.image.description=${{ github.event.repository.description }}
+            org.opencontainers.image.documentation=${{ github.event.repository.repo.url }}
+            org.opencontainers.image.licenses=${{ github.event.repository.license.spdx_id }}
+            org.opencontainers.image.ref.name=${{ steps.prep.outputs.git_branch }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.event.repository.clone_url }}
+            org.opencontainers.image.title=${{ env.IMAGE }}
+            org.opencontainers.image.url=${{ github.event.repository.html_url }}
+            org.opencontainers.image.version=${{ steps.prep.outputs.version }}
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: "${{ env.IMAGE_NAME_FULL}}"
+
+      - name: Add profile credentials to ~/.aws/credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile my-app-name
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile my-app-name
+          # aws configure set aws_session_token ${{ secrets.AWS_SESSION_TOKEN }} --profile my-app-name
+
+      - name: Pull the image before release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: docker pull ${{ env.IMAGE_NAME_FULL }}
+
+      - name: Assets/AV scan
+        uses: ./img-build-tools-library/.github/actions/scanning
+
+      - name: Push the image to ECR
+        if: startsWith(github.ref, 'refs/heads/main')
+        run: docker push ${{ env.IMAGE_NAME_FULL }}
+
+      - name: Publish the image as a release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: ./img-build-tools-library/.github/actions/release_image
