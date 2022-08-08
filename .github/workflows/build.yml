@@ -21,9 +21,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: awscli test
-        run: echo "${{ secrets.GH_IMG_LIBRARY_DEPLOY_KEY }}" | base64
-
       - name: Checkout tools repo
         uses: actions/checkout@v3
         with:
@@ -31,28 +28,30 @@ jobs:
           path: img-build-tools-library
           ssh-key: ${{ secrets.GH_IMG_LIBRARY_DEPLOY_KEY }}
 
-      - name: awscli test
-        run: aws
-
       - name: Environment setup
         uses: ./img-build-tools-library/.github/actions/setup
 
       - name: Set up Docker Buildx
         if: "!startsWith(github.ref, 'refs/tags/v')"
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
 
       - name: Cache Docker layers
         if: "!startsWith(github.ref, 'refs/tags/v')"
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
+      - name: npm ci
+        run: |
+          docker run -v $(pwd):$(pwd) -w $(pwd) ${{ env.NODEJS_IMAGE }} npm ci
+          ls -al
+
       - name: Build
         if: "!startsWith(github.ref, 'refs/tags/v')"
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           build-args: |
             ARCH=${{ env.ARCH }}
@@ -77,11 +76,8 @@ jobs:
           push: false
           tags: "${{ env.IMAGE_NAME_FULL}}"
 
-      - name: Add profile credentials to ~/.aws/credentials
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile my-app-name
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile my-app-name
-          # aws configure set aws_session_token ${{ secrets.AWS_SESSION_TOKEN }} --profile my-app-name
+      - name: AWS authentication
+        uses: ./img-build-tools-library/.github/actions/aws_auth
 
       - name: Pull the image before release
         if: startsWith(github.ref, 'refs/tags/v')
