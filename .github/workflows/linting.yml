@@ -20,4 +20,5 @@ jobs:
     name: Hadolint
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - uses: hadolint/hadolint-action@v2.1.0

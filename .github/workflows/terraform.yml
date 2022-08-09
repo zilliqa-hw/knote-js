@@ -62,14 +62,17 @@ jobs:
         continue-on-error: true
 
       - name: Terraform Init
-        run: cd zarf/terraform ; terraform init
+        run: cd zarf/terraform ; terraform init -backend-config="key=dev/knote-js"
 
       - name: Terraform Validate
         run: cd zarf/terraform ; terraform validate -no-color
 
       - name: Terraform Plan
-        run: cd zarf/terraform ; terraform plan -no-color
+        run: cd zarf/terraform ; terraform plan -no-color -out=plan.tfplan
+        env:
+          TF_VAR_eks_cluster_name: "engineering-dev-eu-central-1"
+          TF_VAR_environment: "dev"
 
       - name: Terraform Apply - dev
         if: startsWith(github.ref, 'refs/heads/main')
-        run: cd zarf/terraform ; terraform apply -no-color
+        run: cd zarf/terraform ; terraform apply -no-color -auto-approve plan.tfplan
