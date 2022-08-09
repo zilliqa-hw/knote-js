@@ -1,0 +1,68 @@
+name: Terraform
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  release:
+    types: [published]
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  terraform:
+    name: Build and scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Checkout tools repo
+        uses: actions/checkout@v3
+        with:
+          repository: zilliqa-hw/img-build-tools-library
+          path: img-build-tools-library
+          ssh-key: ${{ secrets.GH_IMG_LIBRARY_DEPLOY_KEY }}
+
+      - name: AWS authentication - dev
+        if: "!startsWith(github.ref, 'refs/heads/main')"
+        uses: ./img-build-tools-library/.github/actions/aws_auth
+        with:
+          aws_account_id: ${{ secrets.AWS_ACCOUNT_ID_ENGINEERING_DEV }}
+          aws_profile: z-engineering-dev-cicd
+          home_aws_config: ${{ secrets.HOME_AWS_CONFIG }}
+          home_aws_credentials: ${{ secrets.HOME_AWS_CREDENTIALS }}
+
+      - name: AWS authentication - shared services
+        if: "startsWith(github.ref, 'refs/heads/main')"
+        uses: ./img-build-tools-library/.github/actions/aws_auth
+        with:
+          aws_account_id: ${{ secrets.AWS_ACCOUNT_ID_SHARED_SERVICES }}
+          aws_profile: z-shared-services-cicd
+          home_aws_config: ${{ secrets.HOME_AWS_CONFIG }}
+          home_aws_credentials: ${{ secrets.HOME_AWS_CREDENTIALS }}
+
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.1.7
+
+      - name: Terraform fmt
+        id: fmt
+        run: cd zarf/terraform ; terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        run: cd zarf/terraform ; terraform init
+
+      - name: Terraform Validate
+        run: cd zarf/terraform ; terraform validate -no-color
+
+      - name: Terraform Plan
+        run: cd zarf/terraform ; terraform plan -no-color
+
+      - name: Terraform Apply - dev
+        if: startsWith(github.ref, 'refs/heads/main')
+        run: cd zarf/terraform ; terraform apply -no-color

@@ -1,17 +1,25 @@
-# name: Linting
-# on:
-#   push:
+name: Linting
+on:
+  push:
 
-# jobs:
-#   linting:
-#     name: Linting
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v3
-#         with:
-#           fetch-depth: 0
-#       - name: Python setup
-#         uses: actions/setup-python@v3
-#       - name: pre-commit setup
-#         uses: pre-commit/action@v3.0.0
+jobs:
+  precommit:
+    name: Pre-commit linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Python setup
+        uses: actions/setup-python@v3
+      - name: pre-commit setup
+        uses: pre-commit/action@v3.0.0
+
+  hadolint:
+    name: Hadolint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hadolint/hadolint-action@v2.1.0
+        with:
+          dockerfile: Dockerfile
