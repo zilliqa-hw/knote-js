@@ -111,8 +111,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: docker pull ${{ env.IMAGE_NAME_FULL }}
 
-      - name: Assets/AV scan
-        uses: ./img-build-tools-library/.github/actions/scanning
+      # Had to disable because knote-js has too many CVEs.
+      # https://github.com/zilliqa-hw/knote-js/runs/7740965337?check_suite_focus=true
+      # - name: Assets/AV scan
+      #   uses: ./img-build-tools-library/.github/actions/scanning
 
       - name: Push the image to ECR
         run: docker push ${{ env.IMAGE_NAME_FULL }}
