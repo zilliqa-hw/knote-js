@@ -14,7 +14,7 @@ env:
 
 jobs:
   terraform:
-    name: Build and scan
+    name: Terraform
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,6 +26,13 @@ jobs:
           repository: zilliqa-hw/img-build-tools-library
           path: img-build-tools-library
           ssh-key: ${{ secrets.GH_IMG_LIBRARY_DEPLOY_KEY }}
+
+      - name: Github token setup
+        run: |
+          git config --local --remove-section http."https://github.com/"
+          git config --global url."https://${GH_TOKEN}@github.com/zilliqa-hw".insteadOf "https://github.com/zilliqa-hw"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: AWS authentication - dev
         if: "!startsWith(github.ref, 'refs/heads/main')"
